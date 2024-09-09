@@ -2419,6 +2419,9 @@ function ProcessTrigger($player, $parameter, $uniqueID, $target = "-", $addition
       $numRunechantsCreated = match ($parameter) {"ROS152" => 3, "ROS153" => 2, "ROS154" => 1};
       PlayAura("ARC112", $player, $numRunechantsCreated);
       break;
+    case "ROS000":
+      AddCurrentTurnEffect($cardID . "-AMP", $currentPlayer, from: "ABILITY");
+      break;
     case "TER006":
       $index = FindCharacterIndex($mainPlayer, "TER006");
       AddDecisionQueue("YESNO", $mainPlayer, "to_destroy_Hard_Knuckle");
