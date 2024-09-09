@@ -1453,6 +1453,8 @@ function PlayCard($cardID, $from, $dynCostResolved = -1, $index = -1, $uniqueID 
   global $CS_NumAttackCards, $CS_NumBloodDebtPlayed, $layerPriority, $CS_NumWizardNonAttack, $lastPlayed, $CS_PlayIndex, $CS_NumBluePlayed;
   global $decisionQueue, $CS_AbilityIndex, $CS_NumRedPlayed, $CS_PlayUniqueID, $CS_LayerPlayIndex, $CS_LastDynCost, $CS_NumCardsPlayed, $CS_NamesOfCardsPlayed, $CS_NumLightningPlayed;
   global $CS_PlayedAsInstant, $mainPlayer, $EffectContext, $combatChainState, $CCS_GoesWhereAfterLinkResolves, $CS_NumAttacks, $CCS_NumInstantsPlayedByAttackingPlayer;
+  global $CCS_NextInstantBouncesAura, $CS_ActionsPlayed;
+
   $otherPlayer = $currentPlayer == 1 ? 2 : 1;
   $resources = &GetResources($currentPlayer);
   $pitch = &GetPitch($currentPlayer);
@@ -1585,6 +1587,10 @@ function PlayCard($cardID, $from, $dynCostResolved = -1, $index = -1, $uniqueID 
     } else {
       if (GetClassState($currentPlayer, $CS_NamesOfCardsPlayed) == "-") SetClassState($currentPlayer, $CS_NamesOfCardsPlayed, $cardID);
       else SetClassState($currentPlayer, $CS_NamesOfCardsPlayed, GetClassState($currentPlayer, $CS_NamesOfCardsPlayed) . "," . $cardID);
+      if ($cardType == "A" || $cardType == "AA"){
+        if (GetClassState($currentPlayer, $CS_ActionsPlayed) == "-") SetClassState($currentPlayer, $CS_ActionsPlayed, $cardID);
+        else SetClassState($currentPlayer, $CS_ActionsPlayed, GetClassState($currentPlayer, $CS_ActionsPlayed) . "," . $cardID);
+      }
       if ($cardType == "A" && !$canPlayAsInstant) {
         ResetCombatChainState();
       }
@@ -1631,7 +1637,13 @@ function PlayCard($cardID, $from, $dynCostResolved = -1, $index = -1, $uniqueID 
     if (TalentContains($cardID, "LIGHTNING", $currentPlayer) && $from != "EQUIP" && $from != "PLAY" && GetResolvedAbilityType($cardID, $from) != "I") {
       IncrementClassState($currentPlayer, $CS_NumLightningPlayed);
     }
-    if (($CombatChain->HasCurrentLink()) && $from != "EQUIP" && $from != "PLAY" && $playType == "I" && GetResolvedAbilityType($cardID, $from) != "I" && $mainPlayer == $currentPlayer) ++$combatChainState[$CCS_NumInstantsPlayedByAttackingPlayer];
+    if (($CombatChain->HasCurrentLink()) && $from != "EQUIP" && $from != "PLAY" && $playType == "I" && GetResolvedAbilityType($cardID, $from) != "I" && $mainPlayer == $currentPlayer) {
+      ++$combatChainState[$CCS_NumInstantsPlayedByAttackingPlayer];
+      if ($combatChainState[$CCS_NextInstantBouncesAura] == 1) {
+        MZMoveCard($currentPlayer, "THEIRAURAS:maxCost=1&THEIRAURAS:type=T,", "THEIRHAND", may: true, DQContext: "Choose an aura to return to the opponent's hand");
+        $combatChainState[$CCS_NextInstantBouncesAura] = 0;
+      }
+    } 
     PayAdditionalCosts($cardID, $from);
   }
   if ($turn[0] == "B" && $cardType == "AA" && (GetResolvedAbilityType($cardID, $from) == "AA" || GetResolvedAbilityType($cardID, $from) == "")) IncrementClassState($currentPlayer, $CS_NumAttackCards); //Played or blocked
@@ -1908,9 +1920,6 @@ function AddPrePitchDecisionQueue($cardID, $from, $index = -1)
     case "ROS104":
     case "ROS105":
     case "ROS106":
-    case "ROS204":
-    case "ROS205":
-    case "ROS206":
       $names = GetAbilityNames($cardID, $index);
       if (SearchCurrentTurnEffects("ARC043", $currentPlayer) && GetClassState($currentPlayer, $CS_NumActionsPlayed) >= 1) {
         AddDecisionQueue("SETABILITYTYPEABILITY", $currentPlayer, $cardID);
@@ -1962,6 +1971,21 @@ function AddPrePitchDecisionQueue($cardID, $from, $index = -1)
       AddDecisionQueue("ADDCURRENTEFFECTLASTRESULT", $currentPlayer, "HER117-", 1);
       AddDecisionQueue("BLAZEPAYCOST", $currentPlayer, "<-", 1);
       return "";
+    case "ROS186":
+    case "ROS187":
+    case "ROS188":
+    case "ROS204":
+    case "ROS205":
+    case "ROS206":
+      $names = GetAbilityNames($cardID, $index);
+      if (SearchCurrentTurnEffects("ARC043", $currentPlayer) && GetClassState($currentPlayer, $CS_NumActionsPlayed) >= 1) {
+        AddDecisionQueue("SETABILITYTYPEABILITY", $currentPlayer, $cardID);
+      } else{
+        AddDecisionQueue("SETDQCONTEXT", $currentPlayer, "Choose to play the ability or the action");
+        AddDecisionQueue("BUTTONINPUT", $currentPlayer, $names);
+        AddDecisionQueue("SETABILITYTYPE", $currentPlayer, $cardID);
+      }
+      break;
     default:
       break;
   }

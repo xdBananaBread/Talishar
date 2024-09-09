@@ -923,6 +923,8 @@ function AddOnHitTrigger($cardID): void
     case "AAZ016":
     case "AUR012":
     case "AUR019":
+    case "ROS117":
+    case "ROS216":
     case "ROS220":
     case "ROS221":
     case "ROS222":
@@ -1031,7 +1033,7 @@ function AddCardEffectHitTrigger($cardID) // Effects that do not gives it's effe
   }
 }
 
-function AddEffectHitTrigger($cardID) // Effects that gives effect to the attack (keywords "attack gains/gets")
+function AddEffectHitTrigger($cardID): void // Effects that gives effect to the attack (keywords "attack gains/gets")
 {
   global $mainPlayer, $Card_LifeBanner, $Card_ResourceBanner, $layers;
   $effects = explode(',', $cardID);
@@ -1122,6 +1124,7 @@ function AddEffectHitTrigger($cardID) // Effects that gives effect to the attack
     case "HVY091":
     case "HVY136":
     case "HVY099":
+    case "ROS119":
       AddLayer("TRIGGER", $mainPlayer, substr($cardID, 0, 6), $cardID, "EFFECTHITEFFECT");
       break;
     case "MST105-HIT":
@@ -1777,6 +1780,7 @@ function ProcessTrigger($player, $parameter, $uniqueID, $target = "-", $addition
     case "ROS113":
     case "ROS133":
     case "ROS161":
+    case "ROS168"://sigil of aether
     case "ROS182":
     case "ROS210":
     case "ROS226":
@@ -2368,8 +2372,17 @@ function ProcessTrigger($player, $parameter, $uniqueID, $target = "-", $addition
       AddDecisionQueue("ALLCARDPITCHORPASS", $player, "2", 1);
       AddDecisionQueue("PLAYAURA", $player, "WTR225-1", 1); // Quicken
       break;
+    case "ROS000":
+      AddCurrentTurnEffect($parameter, $player);
+      Writelog(CardLink($parameter, $parameter) . " is amping 1");
+      break;
     case "ROS013": case "ROS014":
       DealArcane(1, $target, "ABILITY", $parameter, true);
+      break;
+    case "ROS028":
+      if(SearchCount(SearchBanish($player, talent: "EARTH")) >= 4){
+        PlayAura("ELE109", $player);
+      }
       break;
     case "ROS033":
       AddCurrentTurnEffect($parameter, $player);
@@ -2400,6 +2413,10 @@ function ProcessTrigger($player, $parameter, $uniqueID, $target = "-", $addition
       }
       break;
     case "ROS077":
+      Draw($player);
+      break;
+    case "ROS114":
+      PummelHit($otherPlayer);
       Draw($player);
       break;
     case "ROS130":
@@ -2435,15 +2452,15 @@ function ProcessTrigger($player, $parameter, $uniqueID, $target = "-", $addition
       AddDecisionQueue("ADDCURRENTEFFECT", $mainPlayer, $parameter, 1);
       break;
     case "AIO003":
-      AddDecisionQueue("DECKCARDS", $mainPlayer, "0");
-      AddDecisionQueue("YESNO", $mainPlayer, "if_you_want_to_banish_a_card_of_your_deck", 1);
-      AddDecisionQueue("NOPASS", $mainPlayer, "-", 1);
-      AddDecisionQueue("PARAMDELIMTOARRAY", $mainPlayer, "0", 1);
-      AddDecisionQueue("MULTIREMOVEDECK", $mainPlayer, "0", 1);
-      AddDecisionQueue("MULTIBANISH", $mainPlayer, "DECK,-", 1);
-      AddDecisionQueue("SETDQVAR", $mainPlayer, "0", 1);
-      AddDecisionQueue("WRITELOG", $mainPlayer, "<0> was banished.", 1);
-      AddDecisionQueue("ADDCURRENTEFFECT", $mainPlayer, "AIO003", 1);
+      AddDecisionQueue("DECKCARDS", $defPlayer, "0");
+      AddDecisionQueue("YESNO", $defPlayer, "if_you_want_to_banish_a_card_of_your_deck", 1);
+      AddDecisionQueue("NOPASS", $defPlayer, "-", 1);
+      AddDecisionQueue("PARAMDELIMTOARRAY", $defPlayer, "0", 1);
+      AddDecisionQueue("MULTIREMOVEDECK", $defPlayer, "0", 1);
+      AddDecisionQueue("MULTIBANISH", $defPlayer, "DECK,-", 1);
+      AddDecisionQueue("SETDQVAR", $defPlayer, "0", 1);
+      AddDecisionQueue("WRITELOG", $defPlayer, "<0> was banished.", 1);
+      AddDecisionQueue("ADDCURRENTEFFECT", $defPlayer, "AIO003", 1);
       break;
     default:
       break;

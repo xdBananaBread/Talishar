@@ -134,9 +134,6 @@ function BanishCard(&$banish, &$classState, $cardID, $modifier, $player = "", $f
     GainHealth(1, $otherPlayer);
     return $rv;
   }
-  if($banishedBy == "AIO003" && ClassContains($cardID, "MECHANOLOGIST ", $player)) {
-    AddCurrentTurnEffect("AIO003", $otherPlayer, "DECK");
-  }
   return $rv;
 }
 
@@ -182,10 +179,15 @@ function AddTopDeck($cardID, $player, $from, $deckIndexModifier = 0)
 function AddPlayerHand($cardID, $player, $from, $amount = 1)
 {
   global $CS_NumCrouchingTigerCreatedThisTurn;
+  if(TypeContains($cardID, "T", $player)) { // 'T' type indicates the card is a token
+    WriteLog(CardLink($cardID, $cardID) . " is a token. So instead of going to hand, it ceases to exist.");
+  }
+  else {
   $hand = &GetHand($player);
   if (CardNameContains($cardID, "Crouching Tiger", $player)) IncrementClassState($player, $CS_NumCrouchingTigerCreatedThisTurn);
-  for ($i = 0; $i < $amount; ++$i) {
-    array_push($hand, $cardID);
+    for ($i = 0; $i < $amount; ++$i) {
+      array_push($hand, $cardID);
+    }
   }
 }
 

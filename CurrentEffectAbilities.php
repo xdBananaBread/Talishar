@@ -49,6 +49,15 @@ function EffectHitEffect($cardID, $from)
         PlayAura("ARC112", $mainPlayer, $amount);
       }
       break;
+    case "ROS119":
+      if (ClassContains($attackID, "RUNEBLADE", $mainPlayer) && IsHeroAttackTarget()) {
+        AddDecisionQueue("MULTIZONEINDICES", $mainPlayer, "THEIRHAND");
+        AddDecisionQueue("SETDQCONTEXT", $mainPlayer, "Choose which card you want your opponent to discard", 1);
+        AddDecisionQueue("CHOOSEMULTIZONE", $mainPlayer, "<-", 1);
+        AddDecisionQueue("MZDISCARD", $mainPlayer, "HAND," . $mainPlayer, 1);
+        AddDecisionQueue("MZREMOVE", $mainPlayer, "-", 1);
+      }
+      break;
     case "CRU084-2":
       PutItemIntoPlayForPlayer("CRU197", $mainPlayer, 0, 2);
       break;
@@ -417,7 +426,12 @@ function EffectAttackModifier($cardID)
   else if ($set == "TER") return TEREffectAttackModifier($cardID);
   else if ($set == "AUR") return AUREffectAttackModifier($cardID);
   else if ($set == "ROS") return ROSEffectAttackModifier($cardID);
-  return 0;
+  switch ($cardID) {
+    case "HER123":
+      return 1;
+    default:
+      return 0;
+  }
 }
 
 function EffectHasBlockModifier($cardID)
@@ -837,6 +851,12 @@ function CurrentEffectCostModifiers($cardID, $from)
         case "ASB004":
           if (PitchValue($cardID) == 2) $costModifier -= 1;
           break;
+        case "ROS249":
+          if (SubtypeContains($cardID, "Aura") && $from != "PLAY") {
+            $costModifier -= 2;
+            $remove = true;
+          }
+          break;
         default:
           break;
       }
@@ -1100,6 +1120,13 @@ function CurrentEffectDamagePrevention($player, $type, $damage, $source, $preven
           }
           $remove = true;
           break;
+        case "ROS169":
+          if ($preventable) {
+            $damage -= 2;
+            PlayAura("DYN244", $player); // Ponder
+          }
+          $remove = true;
+          break;
         default:
           break;
       }
@@ -1234,6 +1261,24 @@ function CurrentEffectAfterPlayOrActivateAbility()
   return false;
 }
 
+function CurrentEffectGrantsInstantGoAgain($cardID, $from)
+{
+  global $currentTurnEffects, $currentPlayer;
+  $hasGoAgain = false;
+  for ($i = count($currentTurnEffects) - CurrentTurnPieces(); $i >= 0; $i -= CurrentTurnPieces()) {
+    if ($currentTurnEffects[$i + 1] == $currentPlayer) {
+      switch ($currentTurnEffects[$i]) {
+        case "ROS071": 
+          $hasGoAgain = true;
+          break;
+        default:
+          break;
+      }
+    }
+  }
+  return $hasGoAgain;
+}
+
 function CurrentEffectGrantsNonAttackActionGoAgain($cardID, $from)
 {
   global $currentTurnEffects, $currentPlayer;
@@ -1305,7 +1350,7 @@ function CurrentEffectGrantsNonAttackActionGoAgain($cardID, $from)
 
 function CurrentEffectGrantsGoAgain()
 {
-  global $currentTurnEffects, $mainPlayer, $combatChainState, $CCS_AttackFused;
+  global $currentTurnEffects, $mainPlayer, $combatChainState, $CCS_AttackFused, $CS_NumAuras;
   for ($i = 0; $i < count($currentTurnEffects); $i += CurrentTurnEffectPieces()) {
     if (!isset($currentTurnEffects[$i + 1])) continue;
     if ($currentTurnEffects[$i + 1] == $mainPlayer && IsCombatEffectActive($currentTurnEffects[$i]) && !IsCombatEffectLimited($i)) {
@@ -1417,6 +1462,8 @@ function CurrentEffectGrantsGoAgain()
           return true;
         case "AAZ007":
           return true;
+        case "ROS118":
+          return GetClassState($mainPlayer, $CS_NumAuras) >= 1;
         default:
           break;
       }
@@ -1491,7 +1538,6 @@ function CurrentEffectPreventsDraw($player, $isMainPhase)
 function CurrentEffectIntellectModifier()
 {
   global $currentTurnEffects, $mainPlayer;
-  $otherPlayer = ($mainPlayer == 1 ? 2 : 1);
   $intellectModifier = 0;
   for ($i = count($currentTurnEffects) - CurrentTurnEffectPieces(); $i >= 0; $i -= CurrentTurnEffectPieces()) {
     if ($currentTurnEffects[$i + 1] == $mainPlayer) {
@@ -1509,6 +1555,10 @@ function CurrentEffectIntellectModifier()
         case "HVY009":
           $characters = GetPlayerCharacter($mainPlayer);
           $intellectModifier -= CharacterIntellect($characters[0]) - substr($currentTurnEffects[$i], -1);
+          break;
+        case "ROS217":
+          $intellectModifier -= 2;
+          break;
         default:
           break;
       }
@@ -1584,6 +1634,8 @@ function IsCombatEffectActive($cardID, $defendingCard = "", $SpectraTarget = fal
       return DTDCombatEffectActive($cardID, $cardToCheck);
     case "LGS181":
       return DTDCombatEffectActive($cardID, $cardToCheck);
+    case "HER123":
+      return true;
     default:
       return;
   }

@@ -9,10 +9,11 @@
  * @param integer $index
  * @return string - the type that defines when the corresponding ability may be played
  */
-function ROSAbilityType($cardID, $index = -1): string
+function ROSAbilityType($cardID): string
 {
   return match ($cardID) {
-    "ROS007", "ROS008", "ROS019", "ROS020", "ROS021", "ROS213", "ROS164" => "I",
+    "ROS007", "ROS008", "ROS019", "ROS020", "ROS021", "ROS030", "ROS071", "ROS073", "ROS164", "ROS212", "ROS213",
+    "ROS214", "ROS249", "ROS250", "ROS163" => "I",
     "ROS015", "ROS115", "ROS116", "ROS165" => "A",
     "ROS003", "ROS009" => "AA",
     default => ""
@@ -32,8 +33,8 @@ function ROSAbilityCost($cardID): int
   global $currentPlayer;
   return match ($cardID) {
     "ROS015" => 3,
-    "ROS003", "ROS007", "ROS008" => 2,
-    "ROS009" => 1,
+    "ROS003", "ROS007", "ROS008", "ROS249" => 2,
+    "ROS009", "ROS071", "ROS250" => 1,
     "ROS021" => HasAuraWithSigilInName($currentPlayer) ? 0 : 1,
     default => 0
   };
@@ -86,7 +87,8 @@ function ROSCombatEffectActive($cardID, $attackID): bool
     "ROS042", "ROS043", "ROS044", "ROS052", "ROS053", "ROS054" => true,
     "ROS064", "ROS065", "ROS066" => true,
     "ROS110", "ROS111", "ROS112" => CardType($attackID) == "AA" && CardCost($attackID) <= 1,
-    "ROS127", "ROS128", "ROS129" => ClassContains($attackID, "RUNEBLADE", $mainPlayer),
+    "ROS127", "ROS128", "ROS129", "ROS119" => ClassContains($attackID, "RUNEBLADE", $mainPlayer),
+    "ROS118" => CardType($attackID) == "AA" && ClassContains($attackID, "RUNEBLADE", $mainPlayer),
     "ROS248" => CardSubType($attackID) == "Sword", // this conditional should remove both the buff and 2x attack bonus go again.
     "ROS049", "ROS050", "ROS051" => true, //blossoming decay
     default => false,
@@ -106,7 +108,9 @@ function ROSCombatEffectActive($cardID, $attackID): bool
  */
 function ROSPlayAbility($cardID, $from, $resourcesPaid, $target = "-", $additionalCosts = ""): string
 {
-  global $currentPlayer, $CS_DamagePrevention, $CS_NumLightningPlayed;
+  global $currentPlayer, $CS_DamagePrevention, $CS_NumLightningPlayed, $CCS_NextInstantBouncesAura, $combatChainState, $CS_ArcaneDamageTaken;
+  global $currentPlayer, $CS_DamagePrevention, $CS_NumLightningPlayed, $CS_ActionsPlayed;
+  global $combatChainState;
   $otherPlayer = ($currentPlayer == 1 ? 2 : 1);
 
   switch ($cardID) {
@@ -138,18 +142,34 @@ function ROSPlayAbility($cardID, $from, $resourcesPaid, $target = "-", $addition
       Draw($currentPlayer);
       return "";
     case "ROS021":
-      $ampAmmount = GetClassState($currentPlayer, $CS_NumLightningPlayed);
-      AddCurrentTurnEffect($cardID . "," . $ampAmmount, $currentPlayer, "ABILITY");
-      return CardLink($cardID, $cardID) . " is amping " . $ampAmmount;
+      $ampAmount = GetClassState($currentPlayer, $CS_NumLightningPlayed);
+      AddCurrentTurnEffect($cardID . "," . $ampAmount, $currentPlayer, "ABILITY");
+      return CardLink($cardID, $cardID) . " is amping " . $ampAmount;
+    case "ROS120":
+      AddCurrentTurnEffect($cardID, $currentPlayer);
+      IncrementClassState($currentPlayer, $CS_DamagePrevention, 2);
+      return "";
     case "ROS248":
     case "ROS033":
     case "ROS165":
+    case "ROS118":
+    case "ROS119":
+    case "ROS169":
       AddCurrentTurnEffect($cardID, $currentPlayer);
+      return "";
+    case "ROS030":
+      IncrementClassState($currentPlayer, $CS_DamagePrevention, 2);
       return "";
     case "ROS031":
       $decomposed = Decompose($currentPlayer, 2, 1);
-      if ($decomposed){
+      if ($decomposed) {
         AddDecisionQueue("SPECIFICCARD", $currentPlayer, "FELLINGOFTHECROWN", 1);
+      }
+      return "";
+    case "ROS032":
+      $decomposed = Decompose($currentPlayer, 2, 1);
+      if ($decomposed) {
+        AddDecisionQueue("SPECIFICCARD", $currentPlayer, "PLOWUNDER", 1);
       }
       return "";
     case "ROS035":
@@ -200,37 +220,42 @@ function ROSPlayAbility($cardID, $from, $resourcesPaid, $target = "-", $addition
     case "ROS067": //fertile ground red
       $earthCountInBanish = SearchCount(SearchBanish($currentPlayer, talent: "EARTH"));
       WriteLog($earthCountInBanish . " earth cards in banish");
-      if ($earthCountInBanish >= 4){
+      if ($earthCountInBanish >= 4) {
         GainHealth(5, $currentPlayer);
-      }
-      else{
+      } else {
         GainHealth(2, $currentPlayer);
       }
       return "";
     case "ROS068": //fertile ground yellow
       $earthCountInBanish = SearchCount(SearchBanish($currentPlayer, talent: "EARTH"));
-      if ($earthCountInBanish >= 4){
+      if ($earthCountInBanish >= 4) {
         GainHealth(4, $currentPlayer);
-      }
-      else{
+      } else {
         GainHealth(2, $currentPlayer);
       }
       return "";
     case "ROS069": //fertile ground blue
       $earthCountInBanish = SearchCount(SearchBanish($currentPlayer, talent: "EARTH"));
-      if ($earthCountInBanish >= 4){
+      if ($earthCountInBanish >= 4) {
         GainHealth(3, $currentPlayer);
-      }
-      else{
+      } else {
         GainHealth(2, $currentPlayer);
       }
       return "";
-    case "ROS204":
-    case "ROS205":
-    case "ROS206":
-      if (GetResolvedAbilityType($cardID, "HAND") == "I") {
-        AddCurrentTurnEffect("ROS204-AMP", $currentPlayer, from: "ABILITY");
-      }
+    case "ROS071":
+      AddCurrentTurnEffect($cardID, $currentPlayer);
+      return "";
+    case "ROS073":
+      IncrementClassState($currentPlayer, $CS_DamagePrevention, 2);
+      return "";
+    case "ROS078":
+      AddCurrentTurnEffect($cardID, $currentPlayer);
+      Writelog(CardLink($cardID, $cardID) . " is amping 1");
+      return "";
+    case "ROS079":
+    case "ROS080":
+    case "ROS081":
+      $combatChainState[$CCS_NextInstantBouncesAura] = 1;
       return "";
     case "ROS104":
     case "ROS105":
@@ -286,26 +311,54 @@ function ROSPlayAbility($cardID, $from, $resourcesPaid, $target = "-", $addition
         AddDecisionQueue("PLAYAURA", $currentPlayer, "ARC112", 1);
       }
       return "";
-    case "ROS247":
-      LookAtHand($otherPlayer);
-      LookAtArsenal($otherPlayer);
-      AddNextTurnEffect($cardID . "-1", $otherPlayer);
-      MZMoveCard($currentPlayer, "MYDECK:subtype=Trap", "MYHAND", may: true);
-      MZMoveCard($currentPlayer, "MYDECK:subtype=Trap", "MYHAND", may: true);
-      MZMoveCard($currentPlayer, "MYDECK:subtype=Trap", "MYHAND", may: true);
-      AddDecisionQueue("FINDINDICES", $currentPlayer, "HAND");
-      AddDecisionQueue("PREPENDLASTRESULT", $currentPlayer, 2 . "-", 1);
-      AddDecisionQueue("MULTICHOOSEHAND", $currentPlayer, "<-", 1);
-      AddDecisionQueue("MULTIREMOVEHAND", $currentPlayer, "-", 1);
-      AddDecisionQueue("MULTIADDDECK", $currentPlayer, "-", 1);
-      AddDecisionQueue("SHUFFLEDECK", $currentPlayer, "-");
+    case "ROS163":
+      AddCurrentTurnEffect("ROS163", $currentPlayer);
       return "";
+    case "ROS179":
+    case "ROS180":
+    case "ROS181":
+      $numCardsShuffled = match ($cardID) {
+        "ROS179" => 3,
+        "ROS180" => 2,
+        "ROS181" => 1
+      };
+      $actions = SearchDiscard($currentPlayer, "A");
+      PlayAura("DYN244", $currentPlayer);
+      if ($actions == "") return "";
+      AddDecisionQueue("MULTICHOOSEDISCARD", $currentPlayer, $numCardsShuffled . "-" . $actions);
+      AddDecisionQueue("SPECIFICCARD", $currentPlayer, "REMEMBRANCE", 1);
+      AddDecisionQueue("SHUFFLEDECK", $currentPlayer, "-", 1);
+      return "";
+    case "ROS186":
+    case "ROS187":
+    case "ROS188":
+      if (GetResolvedAbilityType($cardID, "HAND") == "I") {
+        AddCurrentTurnEffect($cardID, $currentPlayer, from: "ABILITY");
+      } else {
+        DealArcane(ArcaneDamage($cardID), 0, "PLAYCARD", $cardID, resolvedTarget: $target);
+      }
+      return "";
+    case "ROS192":
+    case "ROS193":
+    case "ROS194":
+      $ampAmount = match ($cardID) {
+        "ROS192" => 3,
+        "ROS193" => 2,
+        "ROS194" => 1
+      };
+      AddCurrentTurnEffect($cardID . "," . $ampAmount, $currentPlayer, "PLAY");
+      return CardLink($cardID, $cardID) . " is amping " . $ampAmount;
+    case "ROS166"://destructive aethertide
+    case "ROS167"://eternal inferno
     case "ROS176":
     case "ROS177":
     case "ROS178":
     case "ROS189":
     case "ROS190":
     case "ROS191":
+    case "ROS195":
+    case "ROS196":
+    case "ROS197"://open the floodgates
     case "ROS198":
     case "ROS199":
     case "ROS200":
@@ -317,12 +370,17 @@ function ROSPlayAbility($cardID, $from, $resourcesPaid, $target = "-", $addition
     case "ROS209":
       DealArcane(ArcaneDamage($cardID), 0, "PLAYCARD", $cardID, resolvedTarget: $target);
       return "";
-    case "ROS173":
-    case "ROS174":
-    case "ROS175":
-      $sigils = SearchAura($currentPlayer, nameIncludes: "Sigil");
-      $numSigils = count(explode(",", $sigils));
-      DealArcane(ArcaneDamage($cardID) + $numSigils, 0, "PLAYCARD", $cardID, resolvedTarget: $target);
+    case "ROS204":
+    case "ROS205":
+    case "ROS206":
+      if (GetResolvedAbilityType($cardID, "HAND") == "I") {
+        AddCurrentTurnEffect($cardID, $currentPlayer, from: "ABILITY");
+      } else {
+        DealArcane(ArcaneDamage($cardID), 0, "PLAYCARD", $cardID, resolvedTarget: $target);
+      }
+      return "";
+    case "ROS217":
+      AddCurrentTurnEffect($cardID, $currentPlayer);
       return "";
     case "ROS223":
     case "ROS224":
@@ -339,9 +397,6 @@ function ROSPlayAbility($cardID, $from, $resourcesPaid, $target = "-", $addition
       ));
       GainHealth($cardsInGraveyard + $baseLife, $currentPlayer);
       return "";
-    case "ROS213":
-      IncrementClassState($currentPlayer, $CS_DamagePrevention);
-      return "";
     case "ROS115":
       AddDecisionQueue("MULTIZONEINDICES", $currentPlayer, "MYAURAS");
       AddDecisionQueue("CHOOSEMULTIZONE", $currentPlayer, "<-", 1);
@@ -350,6 +405,55 @@ function ROSPlayAbility($cardID, $from, $resourcesPaid, $target = "-", $addition
       return "";
     case "ROS164":
       GainResources($currentPlayer, 1);
+      return "";
+    case "ROS173":
+    case "ROS174":
+    case "ROS175":
+      $sigils = SearchAura($currentPlayer, nameIncludes: "Sigil");
+      $numSigils = count(explode(",", $sigils));
+      DealArcane(ArcaneDamage($cardID) + $numSigils, 0, "PLAYCARD", $cardID, resolvedTarget: $target);
+      return "";
+    case "ROS212":
+    case "ROS213":
+    case "ROS214":
+      IncrementClassState($currentPlayer, $CS_DamagePrevention);
+      return "";
+    case "ROS231":
+    case "ROS232":
+    case "ROS233":
+      if (GetClassState($currentPlayer, $CS_ArcaneDamageTaken) > 0) {
+        $HealthGain = match ($cardID) {
+          "ROS231" => 4,
+          "ROS232" => 3,
+          "ROS233" => 2
+        };
+        GainHealth($HealthGain, $currentPlayer);
+      } else {
+        GainHealth(1, $currentPlayer);
+      }
+      return "";
+    case "ROS244":
+      if (IsHeroAttackTarget()) AskWager($cardID);
+      return "";
+    case "ROS247":
+      LookAtHand($otherPlayer);
+      LookAtArsenal($otherPlayer);
+      AddNextTurnEffect($cardID . "-1", $otherPlayer);
+      MZMoveCard($currentPlayer, "MYDECK:subtype=Trap", "MYHAND", may: true);
+      MZMoveCard($currentPlayer, "MYDECK:subtype=Trap", "MYHAND", may: true);
+      MZMoveCard($currentPlayer, "MYDECK:subtype=Trap", "MYHAND", may: true);
+      AddDecisionQueue("FINDINDICES", $currentPlayer, "HAND");
+      AddDecisionQueue("PREPENDLASTRESULT", $currentPlayer, 2 . "-", 1);
+      AddDecisionQueue("MULTICHOOSEHAND", $currentPlayer, "<-", 1);
+      AddDecisionQueue("MULTIREMOVEHAND", $currentPlayer, "-", 1);
+      AddDecisionQueue("MULTIADDDECK", $currentPlayer, "-", 1);
+      AddDecisionQueue("SHUFFLEDECK", $currentPlayer, "-");
+      return "";
+    case "ROS250":
+      PlayAura("MON104", $currentPlayer, 1);
+      return "";
+    case "ROS252":
+      PutPermanentIntoPlay($currentPlayer, $cardID);
       return "";
     default:
       return "";
@@ -414,6 +518,20 @@ function ROSHitEffect($cardID): void
       AddDecisionQueue("CHOOSEMULTIZONE", $currentPlayer, "<-", 1);
       AddDecisionQueue("MZADDZONE", $currentPlayer, "THEIRDISCARD", 1);
       AddDecisionQueue("MZREMOVE", $currentPlayer, "THEIRBANISH", 1);
+      break;
+    case "ROS117":
+      AddDecisionQueue("MULTIZONEINDICES", $currentPlayer, "MYAURAS");
+      AddDecisionQueue("MAYCHOOSEMULTIZONE", $currentPlayer, "<-", 1);
+      AddDecisionQueue("MZDESTROY", $currentPlayer, "-", 1);
+      AddDecisionQueue("FINDINDICES", $defPlayer, "HAND");
+      AddDecisionQueue("CHOOSEHAND", $defPlayer, "<-", 1);
+      AddDecisionQueue("REMOVEMYHAND", $defPlayer, "-", 1);
+      AddDecisionQueue("DISCARDCARD", $defPlayer, "HAND-".$defPlayer, 1);
+      break;
+    case "ROS216":
+      AddDecisionQueue("MULTIZONEINDICES", $currentPlayer, "THEIRAURAS");
+      AddDecisionQueue("MAYCHOOSEMULTIZONE", $currentPlayer, "<-", 1);
+      AddDecisionQueue("MZDESTROY", $currentPlayer, "-", 1);
       break;
     default:
       break;

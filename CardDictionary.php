@@ -386,6 +386,9 @@ function CardCost($cardID, $from = "-")
     case "HVY165":
     case "HVY186":
     case "HVY187":
+    case "ROS057":
+    case "ROS056":
+    case "ROS055":
     case "HVY188":
       if (GetResolvedAbilityType($cardID, "HAND") == "I" && $from != "CC") return 0;
       else return 3;
@@ -405,19 +408,12 @@ function CardCost($cardID, $from = "-")
     case "MST501":
     case "MST502":
       return -1;
-    case "ROS055":
-    case "ROS056":
-    case "ROS057":
-      if (GetResolvedAbilityType($cardID, "HAND") == "I" && $from != "CC") return 0;
-      else return 3;
     case "ROS204":
     case "ROS205":
-    case "ROS206":
-      if (GetResolvedAbilityType($cardID, "HAND") == "I" && $from != "CC") return 0;
-      else return 1;
-    case "ROS104":
-    case "ROS105":
     case "ROS106":
+    case "ROS105":
+    case "ROS104":
+    case "ROS206":
       if (GetResolvedAbilityType($cardID, "HAND") == "I" && $from != "CC") return 0;
       else return 1;
     default:
@@ -700,6 +696,8 @@ function HasGoAgain($cardID): bool|int
     case "ROS065":
     case "ROS066":
     case "ROS127":
+    case "ROS118":
+    case "ROS119":
     case "ROS128":
     case "ROS129":
     case "ROS130":
@@ -713,6 +711,9 @@ function HasGoAgain($cardID): bool|int
     case "ROS156":
     case "ROS157":
     case "ROS161":
+    case "ROS192":
+    case "ROS193":
+    case "ROS194":
     case "ROS226":
     case "ROS230":
     case "ROS248":
@@ -760,21 +761,22 @@ function GetAbilityType($cardID, $index = -1, $from = "-")
   else if ($cardID == "HER117") return "I";
 }
 
-function GetAbilityTypes($cardID, $index = -1, $from = "-")
+function GetAbilityTypes($cardID, $index = -1, $from = "-"): string
 {
   global $currentPlayer, $CS_PlayIndex;
   if ($index == -1) $index = GetClassState($currentPlayer, $CS_PlayIndex);
   return match ($cardID) {
     "ARC003", "TCC050", "CRU101" => "A,AA",
     "OUT093" => "I,I",
-    "ROS204", "ROS205", "ROS206" => "I,A",
     "HVY143", "HVY144", "HVY145", "HVY163", "HVY164", "HVY165", "HVY186", "HVY187", "HVY188", "MST133", "ROS106",
     "ROS105", "ROS104", "ROS057", "ROS056", "ROS055", "HVY209" => "I,AA",
+    "ROS186", "ROS187", "ROS188", "ROS204", "ROS205", "ROS206" => "I,A",
+    "ROS120", "ROS169" => "B,I",
     default => "",
   };
 }
 
-function GetAbilityNames($cardID, $index = -1, $from = "-")
+function GetAbilityNames($cardID, $index = -1, $from = "-"): string
 {
   global $currentPlayer, $mainPlayer, $combatChain, $layers, $actionPoints, $CS_PlayIndex, $CS_NumActionsPlayed;
   $character = &GetPlayerCharacter($currentPlayer);
@@ -802,10 +804,18 @@ function GetAbilityNames($cardID, $index = -1, $from = "-")
     case "HVY186":
     case "HVY187":
     case "HVY188":
+    case "ROS106":
+    case "ROS105":
+    case "ROS104":
+    case "ROS057":
+    case "ROS056":
+    case "ROS055":
     case "HVY209":
       $names = "Ability";
       if ($currentPlayer == $mainPlayer && count($combatChain) == 0 && count($layers) <= LayerPieces() && $actionPoints > 0) $names .= ",Attack";
       return $names;
+    case "ROS120": case "ROS169":
+      return "Ability";
     case "MST133":
       if ($auras[$index + 3] > 0) $names = "Instant";
       if (SearchCurrentTurnEffects("ARC043", $currentPlayer) && GetClassState($currentPlayer, $CS_NumActionsPlayed) >= 1) {
@@ -814,15 +824,9 @@ function GetAbilityNames($cardID, $index = -1, $from = "-")
         $names != "" ? $names .= ",Attack" : $names = "-,Attack";
       }
       return $names;
-    case "ROS055":
-    case "ROS056":
-    case "ROS057":
-    case "ROS104":
-    case "ROS105":
-    case "ROS106":
-      $names = "Ability";
-      if ($currentPlayer == $mainPlayer && count($combatChain) == 0 && count($layers) <= LayerPieces() && $actionPoints > 0) $names .= ",Attack";
-      return $names;
+    case "ROS186":
+    case "ROS187":
+    case "ROS188":
     case "ROS204":
     case "ROS205":
     case "ROS206":
@@ -847,6 +851,7 @@ function GetAbilityIndex($cardID, $index, $abilityName)
 function GetResolvedAbilityType($cardID, $from = "-")
 {
   global $currentPlayer, $CS_AbilityIndex;
+
   $abilityIndex = GetClassState($currentPlayer, $CS_AbilityIndex);
   $abilityTypes = GetAbilityTypes($cardID, from: $from);
   if ($abilityTypes == "" || $abilityIndex == "-") return GetAbilityType($cardID, -1, $from);
@@ -856,7 +861,7 @@ function GetResolvedAbilityType($cardID, $from = "-")
   } else return "";
 }
 
-function GetResolvedAbilityName($cardID, $from = "-")
+function GetResolvedAbilityName($cardID, $from = "-"): string
 {
   global $currentPlayer, $CS_AbilityIndex;
   $abilityIndex = GetClassState($currentPlayer, $CS_AbilityIndex);
@@ -866,7 +871,7 @@ function GetResolvedAbilityName($cardID, $from = "-")
   return $abilityNames[$abilityIndex];
 }
 
-function IsPlayable($cardID, $phase, $from, $index = -1, &$restriction = null, $player = "", $pitchRestriction = "")
+function IsPlayable($cardID, $phase, $from, $index = -1, &$restriction = null, $player = "", $pitchRestriction = ""): bool
 {
   global $currentPlayer, $CS_NumActionsPlayed, $combatChainState, $CCS_BaseAttackDefenseMax, $CS_NumNonAttackCards, $CS_NumAttackCards;
   global $CCS_ResourceCostDefenseMin, $CCS_CardTypeDefenseRequirement, $actionPoints, $mainPlayer, $defPlayer;
@@ -1037,6 +1042,7 @@ function IsBlockRestricted($cardID, &$restriction = null, $player = "")
       return true;
     }
   };
+  if(SubtypeContains($cardID, "Aura", $player) && !CanBlockWithAura()) return true;
   switch ($cardID) {
     case "HVY198":
       return GetClassState($mainPlayer, $CS_NumCardsDrawn) == 0;
@@ -1064,6 +1070,17 @@ function CanBlockWithEquipment()
     case "EVO207":
     case "EVO208":
     case "EVO209":
+      return false;
+    default:
+      return true;
+  }
+}
+
+function CanBlockWithAura()
+{
+  global $CombatChain;
+  switch ($CombatChain->AttackCard()->ID()) {
+    case "ROS216":
       return false;
     default:
       return true;
@@ -1277,7 +1294,7 @@ function IsPlayRestricted($cardID, &$restriction, $from = "", $index = -1, $play
   global $CS_NumBoosted, $combatChain, $CombatChain, $combatChainState, $currentPlayer, $mainPlayer, $CS_Num6PowBan, $CS_NumCardsDrawn;
   global $CS_DamageTaken, $CS_NumFusedEarth, $CS_NumFusedIce, $CS_NumFusedLightning, $CS_NumNonAttackCards, $CS_DamageDealt, $defPlayer, $CS_NumCardsPlayed, $CS_NumLightningPlayed;
   global $CS_NumAttackCards, $CS_NumBloodDebtPlayed, $layers, $CS_HitsWithWeapon, $CS_AtksWWeapon, $CS_CardsEnteredGY, $CS_NumRedPlayed, $CS_NumPhantasmAADestroyed;
-  global $CS_Num6PowDisc, $CS_HighestRoll, $CS_NumCrouchingTigerPlayedThisTurn, $CCS_WagersThisLink, $CCS_LinkBaseAttack, $chainLinks;
+  global $CS_Num6PowDisc, $CS_HighestRoll, $CS_NumCrouchingTigerPlayedThisTurn, $CCS_WagersThisLink, $CCS_LinkBaseAttack, $chainLinks, $CS_NumInstantPlayed;
   if ($player == "") $player = $currentPlayer;
   $otherPlayer = ($currentPlayer == 1 ? 2 : 1);
   $character = &GetPlayerCharacter($player);
@@ -1530,7 +1547,6 @@ function IsPlayRestricted($cardID, &$restriction, $from = "", $index = -1, $play
     case "ELE234":
       return count($myHand) == 0;
     case "ELE236":
-    case "ROS213":
       return !HasTakenDamage($player);
     case "EVR054":
       return !$CombatChain->HasCurrentLink() || !TypeContains($CombatChain->AttackCard()->ID(), "W", $mainPlayer) || Is1H($CombatChain->AttackCard()->ID());
@@ -1899,8 +1915,19 @@ function IsPlayRestricted($cardID, &$restriction, $from = "", $index = -1, $play
       return !ArsenalHasFaceDownArrowCard($player);
     case "AAZ007":
       return !HasAimCounter();
+    case "ROS030":
+      return SearchCount(SearchBanish($player, talent: "EARTH")) < 4;
+    case "ROS073":
+      return GetClassState($player, $CS_NumInstantPlayed) == 0;
+    case "ROS212":
+    case "ROS213":
+    case "ROS214":
+      return !HasTakenDamage($player);
     case "ROS164":
       return !HasAuraWithSigilInName($currentPlayer);
+    case "AIO026":
+      if ($from == "PLAY") return $myItems[$index + 2] != 2;
+      else return false;
     default:
       return false;
   }
@@ -1946,21 +1973,16 @@ function GoesOnCombatChain($phase, $cardID, $from)
     case "HVY186":
     case "HVY187":
     case "HVY188":
+    case "ROS106":
+    case "ROS105":
+    case "ROS104":
+    case "ROS057":
+    case "ROS056":
+    case "ROS055":
     case "HVY209":
       return ($phase == "B" && count($layers) == 0) || GetResolvedAbilityType($cardID, $from) == "AA";
     case "MST133":
       return GetResolvedAbilityType($cardID, $from) == "AA";
-    case "ROS055":
-    case "ROS056":
-    case "ROS057":
-    case "ROS104":
-    case "ROS105":
-    case "ROS106":
-      return ($phase == "B" && count($layers) == 0) || GetResolvedAbilityType($cardID, $from) == "AA";
-    case "ROS204":
-    case "ROS205":
-    case "ROS206":
-      return ($phase == "B" && count($layers) == 0) || GetResolvedAbilityType($cardID, $from) == "A";
     default:
       break;
   }
@@ -2108,6 +2130,7 @@ function HasBladeBreak($cardID)
       return false;
     case "ROS029":
     case "ROS072":
+    case "ROS114":
       return true;
   }
 }
@@ -2189,6 +2212,10 @@ function HasBattleworn($cardID)
       return true;
     case "AIO006":
       return true;
+    case "ROS071":
+      return true;
+    case "ROS163"://Aether Bindings
+      return true;
     default:
       return false;
   }
@@ -2241,6 +2268,8 @@ function HasTemper($cardID)
     case "HVY648":
     case "AKO004":
     case "AIO003":
+      return true;
+    case "ROS028":
       return true;
     default:
       return false;
@@ -2512,7 +2541,7 @@ function DoesEffectGrantOverpower($cardID): bool
 {
   $cardID = ShiyanaCharacter($cardID);
   return match ($cardID) {
-    "HVY045", "HVY046", "HVY059", "HVY213", "HVY214", "HVY215", "TER011", "TER015" => true,
+    "HVY045", "HVY046", "HVY059", "HVY213", "HVY214", "HVY215", "TER011", "TER015", "ROS118" => true,
     default => false,
   };
 }
@@ -3314,6 +3343,7 @@ function SpellVoidAmount($cardID, $player): int
   return match ($cardID) {
     "ELE173", "MON188", "MON061" => 2,
     "MON090", "MON302", "MON400", "MON401", "MON402", "DYN246", "DYN236", "DYN237", "DYN238", "DYN239" => 1,
+    "ROS239", "ROS240", "ROS241", "ROS242" => 0,
     default => 0
   };
 }

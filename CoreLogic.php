@@ -396,9 +396,11 @@ function DealDamageAsync($player, $damage, $type = "DAMAGE", $source = "NA")
       }
     }
     if ($damage <= $classState[$CS_DamagePrevention]) {
+      CheckIfHauntingRenditionIsActive($player);
       $classState[$CS_DamagePrevention] -= $damage;
       $damage = 0;
     } else {
+      CheckIfHauntingRenditionIsActive($player);
       $damage -= $classState[$CS_DamagePrevention];
       $classState[$CS_DamagePrevention] = 0;
     }
@@ -421,6 +423,13 @@ function DealDamageAsync($player, $damage, $type = "DAMAGE", $source = "NA")
   }
   ResetAuraStatus($player);
   return $damage;
+}
+
+function CheckIfHauntingRenditionIsActive($player): void
+{
+  if (SearchCurrentTurnEffects("ROS120", $player, true)) {
+    PlayAura("ARC112", $player); // Runechant
+  }
 }
 
 
@@ -1137,6 +1146,7 @@ function CanPlayAsInstant($cardID, $index = -1, $from = "")
 {
   global $currentPlayer, $CS_NextWizardNAAInstant, $CS_NextNAAInstant, $CS_CharacterIndex, $CS_ArcaneDamageTaken, $CS_NumWizardNonAttack;
   global $mainPlayer, $CS_PlayedAsInstant, $CS_NumCharged, $CS_LifeLost, $CS_NumAddedToSoul;
+  global $combatChainState;
   $otherPlayer = $currentPlayer == 1 ? 2 : 1;
   $cardType = CardType($cardID);
   $subtype = CardSubType($cardID);
@@ -1194,22 +1204,28 @@ function CanPlayAsInstant($cardID, $index = -1, $from = "")
     case "HVY186":
     case "HVY187":
     case "HVY188":
+    case "ROS206":
+    case "ROS205":
+    case "ROS204":
+    case "ROS188":
+    case "ROS187":
+    case "ROS186":
+    case "ROS106":
+    case "ROS105":
+    case "ROS104":
+    case "ROS057":
+    case "ROS056":
+    case "ROS055":
     case "HVY209":
+    case "ROS120":
+    case "ROS169":
       return $from == "HAND";
     case "MST134":
     case "MST135":
     case "MST136":
       return SearchAuras("MON104", $currentPlayer);
-    case "ROS055":
-    case "ROS056":
-    case "ROS057":
-    case "ROS104":
-    case "ROS105":
-    case "ROS106":
-    case "ROS204":
-    case "ROS205":
-    case "ROS206":
-      return $from == "HAND";
+    case "ROS119":
+      return GetClassState($otherPlayer, $CS_ArcaneDamageTaken) > 0;
     default:
       break;
   }
@@ -1411,7 +1427,7 @@ function DoesAttackHaveGoAgain()
   global $CombatChain, $combatChainState, $CCS_CurrentAttackGainedGoAgain, $mainPlayer, $defPlayer, $CS_Num6PowDisc;
   global $CS_NumAuras, $CS_ArcaneDamageTaken, $CS_AnotherWeaponGainedGoAgain, $CS_NumRedPlayed, $CS_NumNonAttackCards;
   global $CS_NumItemsDestroyed, $CS_PlayIndex, $CCS_WeaponIndex, $CS_NumCharged, $CS_NumCardsDrawn, $CS_Transcended;
-  global $CS_NumLightningPlayed, $CS_DamageTaken, $CCS_NumInstantsPlayedByAttackingPlayer;
+  global $CS_NumLightningPlayed, $CS_DamageTaken, $CCS_NumInstantsPlayedByAttackingPlayer, $CS_ActionsPlayed;
   if (!$CombatChain->HasCurrentLink()) return false;
   $attackID = $CombatChain->AttackCard()->ID();
   $attackType = CardType($attackID);
@@ -1429,6 +1445,8 @@ function DoesAttackHaveGoAgain()
 
   //Grant go Again
   $auras = &GetAuras($mainPlayer);
+  $actionsPlayed = explode(",", GetClassState($mainPlayer, $CS_ActionsPlayed));
+  $numActions = count($actionsPlayed);
   if (ClassContains($attackID, "ILLUSIONIST", $mainPlayer)) {
     if (SearchCharacterForCard($mainPlayer, "MON003") && SearchPitchForColor($mainPlayer, 2) > 0) return true;
     if ($isAura && SearchCharacterForCard($mainPlayer, "MON088")) return true;
@@ -1443,6 +1461,9 @@ function DoesAttackHaveGoAgain()
   if (SearchItemsForCard("EVO097", $mainPlayer) != "" && $attackType == "AA" && ClassContains($CombatChain->AttackCard()->ID(), "MECHANOLOGIST", $mainPlayer)) return true;
   if (SearchCurrentTurnEffectsForCycle("HVY127", "HVY128", "HVY129", $mainPlayer) && ClassContains($CombatChain->AttackCard()->ID(), "WARRIOR", $mainPlayer) && NumAttacksBlocking() > 0) return true;
   if (SearchCurrentTurnEffects("MST094", $mainPlayer) && PitchValue($CombatChain->AttackCard()->ID()) == 3 && $CombatChain->AttackCard()->From() != "PLAY") return true;
+  //the last action in numActions is going to be the current chain link
+  //so we want the second to last to be current funnel, and 3rd to last to be lightning
+  if (count($actionsPlayed) > 2 && $actionsPlayed[$numActions-2] == "ROS074" && TalentContains($actionsPlayed[$numActions-3], "LIGHTNING")) return true;
   $mainPitch = &GetPitch($mainPlayer);
   switch ($attackID) {
     case "WTR078":
@@ -1577,13 +1598,16 @@ function DoesAttackHaveGoAgain()
     case "AUR024":
     case "ROS009":
       return GetClassState($mainPlayer, $CS_NumLightningPlayed) > 0;
+    case "ROS074":
+      //the last action in numActions is going to be the current chain link
+      //so we want the second to last
+      return count($actionsPlayed) > 1 && TalentContains($actionsPlayed[$numActions-2], "LIGHTNING");
     case "ROS089":
     case "ROS090":
     case "ROS091":
-      if(isset($combatChainState[$CCS_NumInstantsPlayedByAttackingPlayer])){ // the first time this is checked in a chain it isn't set but the rest of the time it can be checked.
+      if (isset($combatChainState[$CCS_NumInstantsPlayedByAttackingPlayer])) { // the first time this is checked in a chain it isn't set but the rest of the time it can be checked.
         return $combatChainState[$CCS_NumInstantsPlayedByAttackingPlayer] > 0;
-      }
-      else return false;
+      } else return false;
     case "ROS101":
     case "ROS102":
     case "ROS103":
@@ -1961,9 +1985,11 @@ function EndTurnPitchHandling($player)
 
 function ResolveGoAgain($cardID, $player, $from)
 {
-  global $CS_NextNAACardGoAgain, $actionPoints, $mainPlayer;
+  global $CS_NextNAACardGoAgain, $actionPoints, $mainPlayer, $CS_ActionsPlayed;
+  $actionsPlayed = explode(",", GetClassState($player, $CS_ActionsPlayed));
   $cardType = CardType($cardID);
   $goAgainPrevented = CurrentEffectPreventsGoAgain();
+  WriteLog("processing go again for  " . $cardID);
   if (IsStaticType($cardType, $from, $cardID)) {
     $hasGoAgain = AbilityHasGoAgain($cardID);
     if (!$hasGoAgain && GetResolvedAbilityType($cardID, $from) == "A") $hasGoAgain = CurrentEffectGrantsNonAttackActionGoAgain($cardID, $from);
@@ -1973,9 +1999,12 @@ function ResolveGoAgain($cardID, $player, $from)
       $hasGoAgain = true;
       SetClassState($player, $CS_NextNAACardGoAgain, 0);
     }
+    
+    if (count($actionsPlayed) > 2 && TalentContains($actionsPlayed[2], "LIGHTNING") && $actionsPlayed[1] == "ROS074") $hasGoAgain = true;
     if ($cardType == "AA" && SearchCurrentTurnEffects("ELE147", $player)) $hasGoAgain = false;
     if ($cardType == "A") $hasGoAgain = CurrentEffectGrantsNonAttackActionGoAgain($cardID, $from) || $hasGoAgain;
     if ($cardType == "A" && $hasGoAgain && (SearchAuras("UPR190", 1) || SearchAuras("UPR190", 2))) $hasGoAgain = false;
+    if ($cardType == "I") $hasGoAgain = CurrentEffectGrantsInstantGoAgain($cardID, $from);
   }
   if ($player == $mainPlayer && $hasGoAgain && !$goAgainPrevented) ++$actionPoints;
 }
@@ -2427,6 +2456,7 @@ function ClearGameFiles($gameName)
 function PlayAbility($cardID, $from, $resourcesPaid, $target = "-", $additionalCosts = "-")
 {
   global $currentPlayer, $layers, $CS_NumCrouchingTigerPlayedThisTurn, $currentTurnEffects;
+  $cardType = CardType($cardID);
   $cardID = ShiyanaCharacter($cardID);
   $set = CardSet($cardID);
   $class = CardClass($cardID);
@@ -2561,6 +2591,7 @@ function PitchAbility($cardID)
     case "CRU000":
     case "OUT000":
     case "DTD000":
+    case "ROS000":
       AddLayer("TRIGGER", $currentPlayer, $cardID);
       break;
     case "EVO000": // Technically wrong, it should be a trigger, but since we can't reorder those it works better gameplay-wise to not have that one as a trigger

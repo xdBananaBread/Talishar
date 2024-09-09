@@ -90,7 +90,7 @@ function AuraPieces()
 //5 - My Hold priority for triggers (2 = always hold, 1 = hold, 0 = don't hold)
 //6 - Opponent Hold priority for triggers (2 = always hold, 1 = hold, 0 = don't hold)
 //7 - Frozen (1 = yes, 0 = no)
-//8 - Modalities (eg. Micro-Processor) 
+//8 - Modalities (eg. Micro-Processor)
 //9 - Where it's played from
 function ItemPieces()
 {
@@ -318,6 +318,8 @@ $CS_Transcended = 78;
 $CS_NumCrouchingTigerCreatedThisTurn = 79;
 $CS_NumBlueDefended = 80;
 $CS_NumLightningPlayed = 81;
+$CS_NumInstantPlayed = 82;
+$CS_ActionsPlayed = 83;
 
 //Combat Chain State (State for the current combat chain)
 $CCS_CurrentAttackGainedGoAgain = 0;
@@ -359,6 +361,7 @@ $CCS_WagersThisLink = 35;
 $CCS_PhantasmThisLink = 36;
 $CCS_RequiredNegCounterEquipmentBlock = 37;
 $CCS_NumInstantsPlayedByAttackingPlayer = 38;
+$CCS_NextInstantBouncesAura = 39;
 //Deprecated
 //$CCS_ChainAttackBuff -- Use persistent combat effect with RemoveEffectsOnChainClose instead
 
@@ -371,6 +374,8 @@ function ResetCombatChainState()
   global $CCS_CachedTotalAttack, $CCS_CachedTotalBlock, $CCS_CombatDamageReplaced, $CCS_AttackUniqueID, $CCS_RequiredEquipmentBlock, $CCS_RequiredNegCounterEquipmentBlock;
   global $mainPlayer, $defPlayer, $CCS_CachedDominateActive, $CCS_IsBoosted, $CCS_AttackTargetUID, $CCS_CachedOverpowerActive, $CSS_CachedNumActionBlocked;
   global $chainLinks, $chainLinkSummary, $CCS_CachedNumDefendedFromHand, $CCS_HitThisLink, $CCS_HasAimCounter, $CCS_AttackNumCharged, $CCS_NumInstantsPlayedByAttackingPlayer; 
+  global $CCS_NextInstantBouncesAura;
+
   if(count($chainLinks) > 0) WriteLog("The combat chain was closed.");
   $combatChainState[$CCS_CurrentAttackGainedGoAgain] = 0;
   $combatChainState[$CCS_WeaponIndex] = -1;
@@ -407,6 +412,7 @@ function ResetCombatChainState()
   $combatChainState[$CCS_PhantasmThisLink] = 0;
   $combatChainState[$CCS_RequiredNegCounterEquipmentBlock] = 0;
   $combatChainState[$CCS_NumInstantsPlayedByAttackingPlayer] = 0;
+  $combatChainState[$CCS_NextInstantBouncesAura] = 0;
   for($i = 0; $i < count($chainLinks); ++$i) {
     for($j = 0; $j < count($chainLinks[$i]); $j += ChainLinksPieces()) {
       if($chainLinks[$i][$j + 2] != "1") continue;
@@ -477,6 +483,8 @@ function ResetChainLinkState()
   global $CCS_CachedTotalAttack, $CCS_CachedTotalBlock, $CCS_CombatDamageReplaced, $CCS_AttackUniqueID, $CCS_RequiredEquipmentBlock, $CCS_RequiredNegCounterEquipmentBlock;
   global $CCS_CachedDominateActive, $CCS_IsBoosted, $CCS_AttackTargetUID, $CCS_CachedOverpowerActive, $CSS_CachedNumActionBlocked;
   global $CCS_CachedNumDefendedFromHand, $CCS_HitThisLink, $CCS_AttackNumCharged, $CCS_WasRuneGate, $CCS_WagersThisLink, $CCS_PhantasmThisLink, $CCS_NumInstantsPlayedByAttackingPlayer;
+  global $CCS_NextInstantBouncesAura;
+
   WriteLog("The chain link was closed.");
   $combatChainState[$CCS_CurrentAttackGainedGoAgain] = 0;
   $combatChainState[$CCS_WeaponIndex] = -1;
@@ -511,6 +519,7 @@ function ResetChainLinkState()
   $combatChainState[$CCS_PhantasmThisLink] = 0;
   $combatChainState[$CCS_RequiredNegCounterEquipmentBlock] = 0;
   $combatChainState[$CCS_NumInstantsPlayedByAttackingPlayer] = 0;
+  $combatChainState[$CCS_NextInstantBouncesAura] = 0;
   UnsetChainLinkBanish();
 }
 
@@ -528,7 +537,8 @@ function ResetMainClassState()
   global $CS_LastDynCost, $CS_NumIllusionistActionCardAttacks, $CS_ArcaneDamageDealt, $CS_LayerPlayIndex, $CS_NumCardsPlayed, $CS_NamesOfCardsPlayed, $CS_NumBoostPlayed;
   global $CS_PlayedAsInstant, $CS_AnotherWeaponGainedGoAgain, $CS_NumContractsCompleted, $CS_HitsWithSword, $CS_NumCardsDrawn;
   global $CS_LifeLost, $CS_NumYellowPutSoul, $CS_NumCranked, $CS_NumItemsDestroyed, $CS_NumCrouchingTigerPlayedThisTurn, $CS_NumClashesWon;
-  global $CS_NumVigorDestroyed, $CS_NumMightDestroyed, $CS_NumAgilityDestroyed, $CS_HaveIntimidated, $CS_ModalAbilityChoosen, $CS_NumSpectralShieldAttacks;
+  global $CS_NumVigorDestroyed, $CS_NumMightDestroyed, $CS_NumAgilityDestroyed, $CS_HaveIntimidated, $CS_ModalAbilityChoosen, $CS_NumSpectralShieldAttacks, $CS_NumInstantPlayed;
+  global $CS_ActionsPlayed;
 
   $mainClassState[$CS_Num6PowDisc] = 0;
   $mainClassState[$CS_NumBoosted] = 0;
@@ -611,11 +621,13 @@ function ResetMainClassState()
   $mainClassState[$CS_NumCrouchingTigerCreatedThisTurn] = 0;
   $mainClassState[$CS_NumBlueDefended] = 0;
   $mainClassState[$CS_NumLightningPlayed] = 0;
+  $mainClassState[$CS_NumInstantPlayed] = 0;
+  $mainClassState[$CS_ActionsPlayed] = "-";
 }
 
 function ResetCardPlayed($cardID)
 {
-  global $currentPlayer, $CS_NextWizardNAAInstant, $CS_NextNAAInstant;
+  global $currentPlayer, $CS_NextWizardNAAInstant, $CS_NextNAAInstant, $combatChainState;
   $type = CardType($cardID);
   if($type == "A" && ClassContains($cardID, "WIZARD", $currentPlayer)) SetClassState($currentPlayer, $CS_NextWizardNAAInstant, 0);
   if($type == "A") SetClassState($currentPlayer, $CS_NextNAAInstant, 0);
