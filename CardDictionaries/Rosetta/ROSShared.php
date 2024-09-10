@@ -124,6 +124,8 @@ function ROSPlayAbility($cardID, $from, $resourcesPaid, $target = "-", $addition
     case "ROS008":
       PlayAura("ELE110", $currentPlayer);
       return "";
+    case "ROS010":
+      AddCurrentTurnEffect($cardID, $currentPlayer);
     case "ROS015":
       AddCurrentTurnEffect($cardID . "-AMP", $currentPlayer, from: "ABILITY");
       if (SearchCardList($additionalCosts, $currentPlayer, talent: "EARTH") != "") {
