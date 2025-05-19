@@ -1299,7 +1299,7 @@ function GetAbilityNames($cardID, $index = -1, $from = "-"): string
       $dominateRestricted = $from == "HAND" && CachedDominateActive() && CachedNumDefendedFromHand() >= 1 && NumDefendedFromHand() >= 1;
       $restriction = "";
       $effectRestricted = !IsDefenseReactionPlayable($cardID, $from) || EffectPlayCardConstantRestriction($cardID, "DR", $restriction, "", true);
-      if ($currentPlayer == $defPlayer && count($combatChain) > 0 && !$dominateRestricted && !$effectRestricted && IsReactionPhase()) {
+      if ($currentPlayer == $defPlayer && count($combatChain) > 0 && !$dominateRestricted && !$effectRestricted && IsReactionPhase() && !IsAllyAttackTarget()) {
         $names .= ",Defense Reaction";
         if ($from != "HAND") $names = "-,Defense Reaction";
       }
@@ -1458,6 +1458,7 @@ function IsPlayable($cardID, $phase, $from, $index = -1, &$restriction = null, $
     $restriction = "Frozen";
     return false;
   }
+  if ($phase != "P" && $cardType == "DR" && IsAllyAttackTarget() && $abilityTypes == "") return false;
   if ($phase == "D" && $cardType == "DR" && IsAllyAttackTarget() && $currentPlayer != $mainPlayer) return false;
   if ($phase != "P" && $cardType == "AR" && IsAllyAttacking() && $currentPlayer == $mainPlayer) return false;
   if ($CombatChain->HasCurrentLink() && ($phase == "B" || (($phase == "D" || $phase == "INSTANT") && $cardType == "DR"))) {
@@ -1560,6 +1561,7 @@ function IsPlayable($cardID, $phase, $from, $index = -1, &$restriction = null, $
     else return false;
   }
   if ($cardID == "Cutty_Shark_Quick_Clip_Yellow" && $from == "PLAY") {
+    $ally = GetAllies($currentPlayer);
     if (CheckTapped("MYALLY-$index", $currentPlayer) && $ally[$index + 1] != 2) return false;
     else if ($currentPlayer == $mainPlayer && $actionPoints > 0) return true;
     else return false;
@@ -2856,6 +2858,7 @@ function IsPlayRestricted($cardID, &$restriction, $from = "", $index = -1, $play
     case "sky_skimmer_red":
     case "sky_skimmer_yellow":
     case "sky_skimmer_blue":
+      if ($player != $mainPlayer) return true;
       if ($from != "PLAY") return false;
       if (GetUntapped($player, "MYITEMS", "subtype=Cog") == "") return true;
       if (CountBoatActivations($cardID, $player) >= 1) return true;
@@ -2863,6 +2866,7 @@ function IsPlayRestricted($cardID, &$restriction, $from = "", $index = -1, $play
     case "cloud_city_steamboat_red":
     case "cloud_city_steamboat_yellow":
     case "cloud_city_steamboat_blue":
+      if ($player != $mainPlayer) return true;
       if ($from != "PLAY") return false;
       if (GetUntapped($player, "MYITEMS", "subtype=Cog") == "") return true;
       if (CountBoatActivations($cardID, $player) >= 2) return true;
@@ -2870,6 +2874,7 @@ function IsPlayRestricted($cardID, &$restriction, $from = "", $index = -1, $play
     case "palantir_aeronought_red":
     case "jolly_bludger_yellow":
     case "cogwerx_dovetail_red":
+      if ($player != $mainPlayer) return true;
       if ($from != "PLAY") return false;
       if (GetUntapped($player, "MYITEMS", "subtype=Cog") == "") return true;
       if (CountBoatActivations($cardID, $player) >= 3) return true;
@@ -2885,7 +2890,7 @@ function IsPlayRestricted($cardID, &$restriction, $from = "", $index = -1, $play
 function CountBoatActivations($cardID, $player)
 {
   global $layers;
-  $numResolved = CountCurrentTurnEffects($cardID, $player);
+  $numResolved = CountCurrentTurnEffects($cardID, $player, partial:true);
   $numUnresolved = 0;
   for ($i = 0; $i < count($layers); $i += LayerPieces()) {
     if ($layers[$i] == $cardID) $numUnresolved++;

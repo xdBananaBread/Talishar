@@ -372,18 +372,14 @@ function SEAPlayAbility($cardID, $from, $resourcesPaid, $target = "-", $addition
       break;
     case "palantir_aeronought_red":
       if($from != "PLAY" && !IsAllyAttackTarget()) $combatChainState[$CCS_RequiredEquipmentBlock] = 1;
-      else {
+      elseif (!IsAllyAttackTarget()) {
         AddCurrentTurnEffect($cardID, $currentPlayer);
         $numResolved = CountCurrentTurnEffects($cardID, $currentPlayer);
         //technically inaccurate, but should be functionally mostly the same
         if ($numResolved == 3) {
-          $indices = [];
-          for ($i = 0; $i < count($combatChain); $i += CombatChainPieces()) {
-            if ($combatChain[$i + 1] == $defPlayer) array_push($indices, "COMBATCHAINLINK-$i");
-          }
-          $indices = implode(",", $indices);
-          // AddDecisionQueue("PASSPARAMETER", $currentPlayer, $indices);
-          AddDecisionQueue("CHOOSEMULTIZONE", $currentPlayer, $indices);
+          AddDecisionQueue("SEARCHCOMBATCHAIN", $currentPlayer, "-");
+          AddDecisionQueue("SETDQCONTEXT", $currentPlayer, "Choose which card to destroy");
+          AddDecisionQueue("CHOOSECARDID", $currentPlayer, "<-", 1);
           AddDecisionQueue("SPECIFICCARD", $currentPlayer, "AERONOUGHT", 1);
         }
       }
@@ -468,12 +464,23 @@ function SEAPlayAbility($cardID, $from, $resourcesPaid, $target = "-", $addition
       }
       return CardLink($cardID, $cardID). " does not get power because the reveal was prevented";
     case "midas_touch_yellow":
-      AddDecisionQueue("MULTIZONEINDICES", $currentPlayer, "THEIRALLY&MYALLY");
-      AddDecisionQueue("SETDQCONTEXT", $currentPlayer, "Choose an ally to destroy");
-      AddDecisionQueue("CHOOSEMULTIZONE", $currentPlayer, "<-", 1);
-      AddDecisionQueue("MIDASTOUCH", $currentPlayer, "-", 1);
-      AddDecisionQueue("MZDESTROY", $currentPlayer, "-", 1);
-      break;
+      $targetPlayer = str_contains($target, "MY") ? $currentPlayer : $otherPlayer;
+      $uid = explode("-", $target)[1];
+      $index = SearchAlliesForUniqueID($uid, $targetPlayer);
+      if ($index != -1) {
+        $allies = GetAllies($targetPlayer);
+        $allyCost = CardCost($allies[$index]);
+        PutItemIntoPlayForPlayer("gold", $targetPlayer, number:$allyCost, isToken:true, effectController:$currentPlayer);
+        $token = $allyCost > 1 ? " tokens" : " token";
+        $allyName = CardLink($allies[$index], $allies[$index]);
+        WriteLog("Player $targetPlayer's $allyName turned into $allyCost " . CardLink("gold", "gold") . " $token!");
+        DestroyAlly($targetPlayer, $index);
+        return "";
+      }
+      else {
+        WriteLog(CardLink($cardID, $cardID) . " fizzles due to missing target");
+        return "FAILED";
+      }
     case "goldkiss_rum":
       if($from == "PLAY") AddCurrentTurnEffect($cardID, $currentPlayer);
       break;

@@ -540,7 +540,7 @@ function ProcessLayer($player, $parameter, $target = "-", $additionalCosts = "-"
   }
 }
 
-function AddOnHitTrigger($cardID, $uniqueID = -1, $source="-"): void
+function AddOnHitTrigger($cardID, $uniqueID = -1, $source = "-", $targetPlayer = "-"): void
 {
   global $mainPlayer, $combatChain, $layers;
   $defPlayer = $mainPlayer == 1 ? 0 : 1;
@@ -913,7 +913,7 @@ function AddOnHitTrigger($cardID, $uniqueID = -1, $source="-"): void
     case "hunters_klaive_r":
     case "mark_of_the_huntsman":
     case "mark_of_the_huntsman_r":
-      if (IsHeroAttackTarget()) AddLayer("TRIGGER", $mainPlayer, $cardID, $cardID, "ONHITEFFECT", $uniqueID);
+      if (IsHeroAttackTarget() || $targetPlayer != "-") AddLayer("TRIGGER", $mainPlayer, $cardID, $cardID, "ONHITEFFECT", $uniqueID);
       break;
     case "find_center_blue":
     case "break_tide_yellow":
@@ -3263,11 +3263,11 @@ function ProcessTrigger($player, $parameter, $uniqueID, $target = "-", $addition
     case "crash_and_bash_blue":
       if (CanRevealCards($player)) {
         AddDecisionQueue("SETDQCONTEXT", $player, "Choose a card with crush to reveal", 1);
-        AddDecisionQueue("MULTIZONEINDICES", $player, "MYHAND:type=I");
+        AddDecisionQueue("MULTIZONEINDICES", $player, "MYHAND:hasCrush=true");
         AddDecisionQueue("MAYCHOOSEMULTIZONE", $player, "<-", 1);
         AddDecisionQueue("MZOP", $player, "GETCARDID", 1);
         AddDecisionQueue("REVEALCARDS", $player, "-", 1);
-        AddDecisionQueue("PLAYAURA", $player, "embodiment_of_lightning", 1);
+        AddDecisionQueue("PLAYAURA", $player, "seismic_surge", 1);
       }
       break;
     case "loan_shark_yellow":

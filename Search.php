@@ -1,6 +1,6 @@
 <?php
 
-function SearchDeck($player, $type = "", $subtype = "", $maxCost = -1, $minCost = -1, $class = "", $talent = "", $bloodDebtOnly = false, $phantasmOnly = false, $pitch = -1, $specOnly = false, $maxAttack = -1, $maxDef = -1, $frozenOnly = false, $hasNegCounters = false, $hasEnergyCounters = false, $comboOnly = false, $minAttack = false, $hasCrank = false, $hasSteamCounter = false)
+function SearchDeck($player, $type = "", $subtype = "", $maxCost = -1, $minCost = -1, $class = "", $talent = "", $bloodDebtOnly = false, $phantasmOnly = false, $pitch = -1, $specOnly = false, $maxAttack = -1, $maxDef = -1, $frozenOnly = false, $hasNegCounters = false, $hasEnergyCounters = false, $comboOnly = false, $minAttack = false, $hasCrank = false, $hasSteamCounter = false, $hasCrush = false)
 {
   $otherPlayer = $player == 1 ? 2 : 1;
   if (SearchAurasForCard("channel_the_bleak_expanse_blue", $otherPlayer) != "" || SearchAurasForCard("channel_the_bleak_expanse_blue", $player) != "") {
@@ -616,16 +616,24 @@ function SearchCurrentTurnEffectsForCycle($card1, $card2, $card3, $player)
   return false;
 }
 
-function CountCurrentTurnEffects($cardID, $player, $remove = false)
+function CountCurrentTurnEffects($cardID, $player, $remove = false, $partial = false)
 {
   global $currentTurnEffects;
   $count = count($currentTurnEffects);
   $pieces = CurrentTurnEffectPieces();
   $total = 0;
   for ($i = 0; $i < $count; $i += $pieces) {
-    if ($currentTurnEffects[$i] == $cardID && $currentTurnEffects[$i + 1] == $player) {
-      if ($remove) RemoveCurrentTurnEffect($i);
-      ++$total;
+    if (!$partial){
+      if ($currentTurnEffects[$i] == $cardID && $currentTurnEffects[$i + 1] == $player) {
+        if ($remove) RemoveCurrentTurnEffect($i);
+        ++$total;
+      }
+    }
+    else{
+      if (str_contains($currentTurnEffects[$i], $cardID) && $currentTurnEffects[$i + 1] == $player) {
+        if ($remove) RemoveCurrentTurnEffect($i);
+        ++$total;
+      }
     }
   }
   return $total;
@@ -1758,4 +1766,21 @@ function SearchSoulForIndex($cardID, $player)
     if ($souls[$i] == $cardID) return $i;
   }
   return -1;
+}
+
+function SearchCombatChainDefendingCards($player, $cardType = "-")
+{
+  global $chainLinks;
+  $cardType = $cardType == "-" ? "" : $cardType;
+  $otherPlayer = $player == 1 ? 2 : 1;
+  $cardIDList = GetChainLinkCardIDs($otherPlayer, $cardType, exclCardTypes: "C");
+  for ($i = 0; $i < count($chainLinks); ++$i) {
+    for ($j = 0; $j < count($chainLinks[$i]); $j += ChainLinksPieces()) {
+      if ($chainLinks[$i][$j + 1] != $otherPlayer || $chainLinks[$i][$j + 2] != "1") continue;
+      if ($cardType != "" && !TypeContains($chainLinks[$i][$j], $cardType, $player)) continue;
+      if ($cardIDList != "") $cardIDList .= ",";
+      $cardIDList .= $chainLinks[$i][$j];
+    }
+  }
+  return $cardIDList;
 }

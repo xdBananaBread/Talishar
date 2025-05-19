@@ -337,7 +337,7 @@ function DecisionQueueStaticEffect($phase, $player, $parameter, $lastResult)
       return ($rv == "" ? "PASS" : $rv);
     case "PUTPLAY":
       $subtype = CardSubType($lastResult);
-      if ($subtype == "Item") {
+      if (DelimStringContains($subtype, "Item")) {
         if ($parameter == "False") PutItemIntoPlayForPlayer($lastResult, $player, mainPhase: $parameter);
         else PutItemIntoPlayForPlayer($lastResult, $player, ($parameter != "-" ? $parameter : 0));
       } else if (DelimStringContains($subtype, "Aura")) {
@@ -346,19 +346,7 @@ function DecisionQueueStaticEffect($phase, $player, $parameter, $lastResult)
       }
       return $lastResult;
     case "SEARCHCOMBATCHAIN":
-      $cardIDList = "";
-      $cardType = "";
-      if ($parameter != "-") $cardType = $parameter;
-      $otherPlayer = $player == 1 ? 2 : 1;
-      $cardIDList = GetChainLinkCardIDs($otherPlayer, $cardType, exclCardTypes: "C");
-      for ($i = 0; $i < count($chainLinks); ++$i) {
-        for ($j = 0; $j < count($chainLinks[$i]); $j += ChainLinksPieces()) {
-          if ($chainLinks[$i][$j + 1] != $otherPlayer || $chainLinks[$i][$j + 2] != "1") continue;
-          if ($cardType != "" && !TypeContains($chainLinks[$i][$j], $cardType, $player)) continue;
-          if ($cardIDList != "") $cardIDList .= ",";
-          $cardIDList .= $chainLinks[$i][$j];
-        }
-      }
+      $cardIDList = SearchCombatChainDefendingCards($player, $parameter);
       return $cardIDList != "" ? $cardIDList : "PASS";
     case "PLAYABILITY":
       PlayAbility($lastResult, "-", 0);
@@ -1824,6 +1812,7 @@ function DecisionQueueStaticEffect($phase, $player, $parameter, $lastResult)
       $dqVars[$parameter] = $targetType;
       return $lastResult;
     case "SETDQVAR":
+      if (!isset($dqVars[0])) $dqVars[0] = "-";
       $dqVars[$parameter] = $lastResult;
       return $lastResult;
     case "MZSETDQVAR":
@@ -2207,7 +2196,7 @@ function DecisionQueueStaticEffect($phase, $player, $parameter, $lastResult)
         $sourceUID = $mainChar[$ind + 11];
       }
       else $sourceUID = -1;
-      AddOnHitTrigger($cardID, $sourceUID);
+      AddOnHitTrigger($cardID, $sourceUID, targetPlayer: $targetPlayer);
       if (DelimStringContains($location, "COMBATCHAINATTACKS", true) && TypeContains($cardID, "AA")) { //Kiss of Death added effects
         $index = intval(explode("-", $location)[1]) / ChainLinksPieces();
         $activeEffects = explode(",", $chainLinks[$index][6]);
@@ -2975,11 +2964,6 @@ function DecisionQueueStaticEffect($phase, $player, $parameter, $lastResult)
         PutItemIntoPlayForPlayer("gold", $player, isToken:true, effectController:$player);
         WriteLog("Player " . $player . " created a " . CardLink("gold", "gold") . " token");
       }
-      return $lastResult;
-    case "MIDASTOUCH":
-      PutItemIntoPlayForPlayer("gold", $player, number:CardCost(GetMZCard($player, $lastResult)), isToken:true, effectController:$player);
-      $token = CardCost(GetMZCard($player, $lastResult)) > 1 ? " tokens" : " token";
-      WriteLog("Player " . $player . " created " . CardCost(GetMZCard($player, $lastResult)) . " " . CardLink("gold", "gold") . $token);
       return $lastResult;
     default:
       return "NOTSTATIC";
